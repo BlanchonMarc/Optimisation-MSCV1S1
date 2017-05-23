@@ -1,0 +1,135 @@
+clear all;
+close all;
+clc;
+
+load('HK-233_a_09-Sep-2015_ver1_XYZ+_newZ_nb_clean.mat') %load first pointcloud
+figure;
+plot3(Xclean, Yclean, Zclean, 'k.');%plot the pointcloud
+
+cfirst=[Xclean ; Yclean ; Zclean]; %concatenate the coordinate to one vectore
+cfirst=cfirst';%transpose to have the format we want to convert in homogeneous coordinates if needed but don't need because can convert to point cloud directly
+
+%hfirst = cart2hom(cfirst); % convert to homogeneous
+
+
+ptCloudRef = pointCloud(cfirst); % point Cloud convertion
+ptCloud1 = ptCloudRef;
+
+load('HK-233_b_09-Sep-2015_ver1_XYZ+_newZ_nb_clean.mat');
+figure;
+plot3(Xclean, Yclean, Zclean, 'k.');%plot the pointcloud
+
+csecond=[Xclean ; Yclean ; Zclean]; %concatenate the coordinate to one vectore
+csecond=csecond';%transpose to have the format we want to convert in homogeneous coordinates if needed but don't need because can convert to point cloud directly
+
+%hfirst = cart2hom(cfirst); % convert to homogeneous
+
+
+ptCloudCurrent = pointCloud(csecond); % point Cloud convertion
+ptCloud2 = ptCloudCurrent;
+
+gridSize = 0.1; %Set a grid size
+% down sample the point cloud by the grid size, it speed up the process and
+% increase the accuracy
+fixed = pcdownsample(ptCloudRef, 'gridAverage', gridSize);
+moving = pcdownsample(ptCloudCurrent, 'gridAverage', gridSize);
+
+
+tform = pcregrigid(moving, fixed, 'Metric' , 'pointToPoint','Extrapolate', true); %set the transform
+ptCloudAligned = pctransform(ptCloudCurrent,tform); %transform the second point cloud accoring to the transformation setted beforte
+
+mergeSize = 0.015; %set a merging size
+ptCloudScene = pcmerge(ptCloudRef, ptCloudAligned, mergeSize); %merge the two pointcloud
+
+figure;
+
+% Visualize the merged point clouds
+pcshow(ptCloudScene, 'VerticalAxis','Y', 'VerticalAxisDir', 'Down')
+title('Initial world scene')
+xlabel('X (m)')
+ylabel('Y (m)')
+zlabel('Z (m)')
+drawnow
+
+
+load('HK-233_c_09-Sep-2015_ver1_XYZ+_newZ_nb_clean.mat')
+figure;
+plot3(Xclean, Yclean, Zclean, 'k.');%plot the pointcloud
+
+cthird=[Xclean ; Yclean ; Zclean]; %concatenate the coordinate to one vectore
+cthird=cthird';%transpose to have the format we want to convert in homogeneous coordinates if needed but don't need because can convert to point cloud directly
+
+%hfirst = cart2hom(cfirst); % convert to homogeneous
+ptCloudRef = ptCloudScene;
+
+ptCloudCurrent = pointCloud(cthird); % point Cloud convertion
+
+ptCloud3 = ptCloudCurrent;
+gridSize = 0.1; %Set a grid size
+% down sample the point cloud by the grid size, it speed up the process and
+% increase the accuracy
+fixed = pcdownsample(ptCloudRef, 'gridAverage', gridSize);
+moving = pcdownsample(ptCloudCurrent, 'gridAverage', gridSize);
+
+
+tform = pcregrigid(moving, fixed, 'Metric' , 'pointToPoint','Extrapolate', true); %set the transform
+ptCloudAligned = pctransform(ptCloudCurrent,tform); %transform the second point cloud accoring to the transformation setted beforte
+
+mergeSize = 0.015; %set a merging size
+ptCloudScene = pcmerge(ptCloudRef, ptCloudAligned, mergeSize); %merge the two pointcloud
+
+figure;
+
+% Visualize the merged point clouds
+pcshow(ptCloudScene, 'VerticalAxis','Y', 'VerticalAxisDir', 'Down')
+title('Initial world scene')
+xlabel('X (m)')
+ylabel('Y (m)')
+zlabel('Z (m)')
+drawnow
+
+
+
+
+
+
+%%
+% A plot. Model points and data points in start positions
+
+
+
+figure(1)
+plot3(model(1,:),model(2,:),model(3,:),'r.',data(1,:),data(2,:),data(3,:),'b.'), hold on, axis equal
+plot3([1 1 0],[0 1 1],[0 0 0],'r-',[1 1],[1 1],[0 1],'r-','LineWidth',2)
+title('Original data points (blue) and model points (red)')
+
+% Running the ICP-algorithm. Least squares criterion
+
+[RotMat,TransVec,dataOut]=icp(model,data);
+
+% A plot. Model points and data points in transformed positions (LS-criterion)
+
+figure(2)
+plot3(model(1,:),model(2,:),model(3,:),'r.',dataOut(1,:),dataOut(2,:),dataOut(3,:),'g.'), hold on, axis equal
+plot3([1 1 0],[0 1 1],[0 0 0],'r-',[1 1],[1 1],[0 1],'r-','LineWidth',2)
+title('Transformed data points (green) and model points (red), least squares criterion')
+
+% The data points do not fit so well to the model points using LS-criterion
+
+% Running the ICP-algorithm. Welsch criterion
+
+[RotMat2,TransVec2,dataOut2]=icp(model,data,[],[],4);
+
+% Reference:
+%
+% Bergstr?m, P. and Edlund, O. 2014, 'Robust registration of point sets using iteratively reweighted least squares'
+% Computational Optimization and Applications, vol 58, no. 3, pp. 543-561, 10.1007/s10589-014-9643-2
+
+
+% A plot. Model points and data points in transformed positions (LS)
+
+figure(3)
+plot3(model(1,:),model(2,:),model(3,:),'r.',dataOut2(1,:),dataOut2(2,:),dataOut2(3,:),'g.'), hold on, axis equal
+plot3([1 1 0],[0 1 1],[0 0 0],'r-',[1 1],[1 1],[0 1],'r-','LineWidth',2)
+title('Transformed data points (green) and model points (red), Welsch criterion')
+
